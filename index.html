@@ -1,0 +1,178 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Welding Bay 1 · Site Safety VMS</title>
+<meta name="description" content="Safety review of a welding bay at shift start: hard hats, restricted zones, posture, toolbox talk and housekeeping, played back with the CCTV.">
+<meta name="robots" content="noindex">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&display=swap">
+<link rel="icon" href="assets/vismaya-v.png">
+<link rel="stylesheet" href="assets/app.css">
+<script>try{const t=localStorage.getItem('vms-theme');if(t)document.documentElement.dataset.theme=t;}catch(e){}</script>
+</head>
+<body>
+<div class="gate" id="gate">
+  <form class="gate-card" id="gate-form" autocomplete="on">
+    <img src="assets/vismaya-v.png" alt="" class="gate-logo">
+    <div class="eyebrow">Site Safety VMS</div>
+    <h1>Welding Bay 1 review</h1>
+    <p class="gate-sub">Sign in to view the recording and safety review.</p>
+    <label for="gate-user">Username</label>
+    <input id="gate-user" name="username" type="text" autocomplete="username" required>
+    <label for="gate-pass">Password</label>
+    <input id="gate-pass" name="password" type="password" autocomplete="current-password" required>
+    <p class="gate-err" id="gate-err" role="alert" hidden>That username and password don't match. Try again.</p>
+    <button class="btn primary" type="submit">Sign in</button>
+  </form>
+</div>
+<header class="top">
+  <div class="brand">
+    <img src="assets/vismaya-v.png" alt="" class="logo">
+    <div class="brand-txt">
+      <div class="eyebrow">Site Safety VMS · Recorded review</div>
+      <h1>Welding Bay 1</h1>
+    </div>
+  </div>
+  <div class="cam">
+    <span class="dot live" aria-hidden="true"></span>
+    <div>
+      <div class="cam-id" id="cam-id">R2-C09-BAY1-C2</div>
+      <div class="cam-sub">Pipe fabrication · Wed 7 Oct 2026</div>
+    </div>
+  </div>
+  <div class="engines" aria-label="Safety checks on this camera">
+    <span class="eng"><i></i>Hard hats</span><span class="eng"><i></i>No-go zones</span><span class="eng"><i></i>Posture</span><span class="eng"><i></i>Toolbox talk</span><span class="eng"><i></i>Housekeeping</span>
+  </div>
+  <div class="top-right">
+    <div class="clock" id="clock" aria-live="off">07:17:52</div>
+    <button class="btn ghost" id="btn-method" type="button">Shift summary</button>
+    <button class="btn ghost" id="btn-logout" type="button">Sign out</button>
+    <button class="btn icon" id="btn-theme" type="button" title="Light / dark (D)" aria-label="Toggle light or dark theme">
+      <svg viewBox="0 0 24 24"><path d="M12 3a9 9 0 1 0 9 9 7 7 0 0 1-9-9z"/></svg>
+    </button>
+  </div>
+</header>
+
+<main class="layout">
+  <section class="col-main">
+    <div class="card viewer">
+      <div class="viewer-bar">
+        <div class="layer-toggles" role="group" aria-label="Overlay layers">
+          <button class="tog on" data-layer="boxes" type="button" title="B">Boxes</button>
+          <button class="tog on" data-layer="labels" type="button">Labels</button>
+          <button class="tog on" data-layer="trails" type="button">Trails</button>
+          <button class="tog on" data-layer="zones" type="button" title="Z">Zones</button>
+          <button class="tog" data-layer="heat" type="button" title="H">Heatmap</button>
+          <button class="tog on" data-layer="cables" type="button">Cables</button>
+          <button class="tog on" data-layer="groups" type="button">Groups</button>
+        </div>
+        <div class="viewer-status" id="viewer-status">Loading recording…</div>
+      </div>
+      <div class="stage" id="stage">
+        <video id="video" preload="none" playsinline muted poster="media/floor.jpg">
+          <source src="media/bay1_hevc.mp4" type='video/mp4; codecs="hvc1"'>
+          <source src="media/bay1_h264.mp4" type='video/mp4; codecs="avc1.64001f"'>
+        </video>
+        <canvas id="ov" aria-label="Safety overlay on the video"></canvas>
+        <div class="stage-hint" id="stage-hint">Click a worker to inspect</div>
+        <div class="big-play" id="big-play" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg></div>
+      </div>
+      <div class="transport">
+        <button class="btn icon" id="b-play" type="button" title="Play / pause (Space)" aria-label="Play or pause">
+          <svg viewBox="0 0 24 24" class="i-play"><path d="M8 5v14l11-7z"/></svg>
+          <svg viewBox="0 0 24 24" class="i-pause"><path d="M7 5h4v14H7zM13 5h4v14h-4z"/></svg>
+        </button>
+        <button class="btn icon" id="b-back" type="button" title="Back 5 s (←)" aria-label="Back 5 seconds"><svg viewBox="0 0 24 24"><path d="M11 6 5 12l6 6M19 6l-6 6 6 6"/></svg></button>
+        <button class="btn icon" id="b-fwd" type="button" title="Forward 5 s (→)" aria-label="Forward 5 seconds"><svg viewBox="0 0 24 24"><path d="m13 6 6 6-6 6M5 6l6 6-6 6"/></svg></button>
+        <button class="btn icon" id="b-prev-ev" type="button" title="Previous event ([)" aria-label="Previous event"><svg viewBox="0 0 24 24"><path d="M6 5v14M18 6l-8 6 8 6z"/></svg></button>
+        <button class="btn icon" id="b-next-ev" type="button" title="Next event (])" aria-label="Next event"><svg viewBox="0 0 24 24"><path d="M18 5v14M6 6l8 6-8 6z"/></svg></button>
+        <div class="tc"><span id="tc-now">00:00</span><span class="tc-sep">/</span><span id="tc-dur">10:03</span></div>
+        <div class="speed" role="group" aria-label="Playback speed">
+          <button class="sp" data-rate="0.5" type="button">0.5×</button><button class="sp on" data-rate="1" type="button">1×</button><button class="sp" data-rate="2" type="button">2×</button><button class="sp" data-rate="4" type="button">4×</button><button class="sp" data-rate="8" type="button">8×</button>
+        </div>
+      </div>
+      <div class="scrub-wrap">
+        <canvas id="scrub" aria-label="Timeline scrubber: drag to move through the video"></canvas>
+        <div class="tip" id="scrub-tip" hidden></div>
+      </div>
+    </div>
+
+    <div class="charts">
+      <div class="card chart-card wide">
+        <div class="card-h"><h2>People on camera, by hard-hat check</h2><div class="legend"><span><i style="background:var(--ok)"></i>Hard hat on</span><span><i style="background:var(--crit)"></i>Alert</span><span><i style="background:var(--neutral)"></i>Hat not visible</span><span><i style="background:var(--faint)"></i>Too far to check</span><span><i class="band"></i>Toolbox talk</span></div></div>
+        <div class="cv-wrap"><canvas id="c-people" class="cv" aria-label="People over time by hard-hat check"></canvas><div class="tip" hidden></div></div>
+      </div>
+      <div class="card chart-card">
+        <div class="card-h"><h2>Main-aisle cable &amp; hose cover</h2><span class="sub" id="clutter-now">0.0%</span></div>
+        <div class="cv-wrap"><canvas id="c-clutter" class="cv" aria-label="Aisle cable cover over time"></canvas><div class="tip" hidden></div></div>
+        <p class="note">Share of the walkway floor covered by cables or hoses that were not there at 07:18. Thin leads are not always picked up, so the real figure may be higher.</p>
+      </div>
+      <div class="card chart-card">
+        <div class="card-h"><h2>Where people stood</h2><span class="sub">so far</span></div>
+        <div class="cv-wrap heat-wrap"><canvas id="c-heat" class="cv" aria-label="Floor heatmap of worker positions up to now"></canvas></div>
+        <div class="heat-scale"><span>less time</span><i></i><span>more time</span></div>
+      </div>
+      <div class="card chart-card">
+        <div class="card-h"><h2>Time by area so far</h2><span class="sub">person-minutes</span></div>
+        <div id="zone-time" class="hbars"></div>
+      </div>
+    </div>
+  </section>
+
+  <aside class="col-side">
+    <div class="kpis">
+      <div class="card kpi"><div class="k-l">On camera now</div><div class="k-v" id="k-people">0</div><div class="k-s" id="k-people-s">0 close enough to check</div></div>
+      <div class="card kpi"><div class="k-l">Hard hats on</div><div class="k-v" id="k-comp">-</div><div class="k-s" id="k-comp-s">so far</div></div>
+      <div class="card kpi"><div class="k-l">Safety alerts</div><div class="k-v" id="k-alerts">0</div><div class="k-s">no hard hat · no-go zone</div></div>
+      <div class="card kpi"><div class="k-l">Cables on walkway</div><div class="k-v" id="k-clutter">0.0%</div><div class="k-s" id="k-clutter-s">of floor · 0.0% at 07:18</div></div>
+    </div>
+    <div class="card" id="group-card" hidden>
+      <div class="card-h"><h2>Toolbox talk in progress</h2><span class="pill aqua" id="g-dur">0:00</span></div>
+      <p class="g-txt"><b id="g-n">0</b> people gathered together.</p>
+    </div>
+    <div class="card">
+      <div class="card-h"><h2>Areas now</h2></div>
+      <div id="zones-now" class="hbars"></div>
+    </div>
+    <div class="card">
+      <div class="card-h"><h2>Workers on camera</h2><span class="sub" id="inview-n">0</span></div>
+      <ul class="inview" id="inview"></ul>
+    </div>
+    <div class="card" id="track-card" hidden>
+      <div class="card-h"><h2 id="tc-title">Worker</h2><button class="btn ghost sm" id="tc-close" type="button">Close</button></div>
+      <div class="tcard">
+        <img id="tc-img" alt="Crop of the selected worker" hidden>
+        <div class="tc-meta" id="tc-meta"></div>
+      </div>
+      <div id="tc-zones" class="hbars small"></div>
+      <div class="tc-actions"><button class="btn ghost sm" id="tc-first" type="button">Jump to first seen</button><button class="btn ghost sm" id="tc-last" type="button">Jump to last seen</button></div>
+    </div>
+    <div class="card events-card">
+      <div class="card-h"><h2>Events</h2>
+        <div class="ev-filters" role="group" aria-label="Filter events">
+          <button class="chip on" data-k="all" type="button">All</button><button class="chip" data-k="awkward_posture" type="button">Posture</button><button class="chip" data-k="gathering" type="button">Toolbox talk</button><button class="chip" data-k="clutter_increase" type="button">Housekeeping</button>
+        </div>
+      </div>
+      <ol class="events" id="events"></ol>
+    </div>
+  </aside>
+</main>
+
+<footer class="foot">
+  <span>Camera R2-C09-BAY1-C2 · Welding Bay 1 · recorded Wed 7 Oct 2026, 07:17:52 to 07:27:55 · every alert reviewed by a person</span>
+  <span>Keys: Space play/pause · ← → 5 s · [ ] previous/next event · H heatmap · Z zones · D light/dark</span>
+</footer>
+
+<div class="drawer" id="drawer" hidden>
+  <div class="drawer-in card" role="dialog" aria-modal="true" aria-labelledby="dr-title">
+    <div class="card-h"><h2 id="dr-title">Shift summary</h2><button class="btn ghost sm" id="dr-close" type="button">Close</button></div>
+    <div class="dr-body" id="dr-body"></div>
+  </div>
+</div>
+
+<script src="assets/app.js"></script>
+</body>
+</html>
