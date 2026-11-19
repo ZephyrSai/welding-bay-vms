@@ -38,10 +38,21 @@
   }
 
   // ------------------------------------------------------------------ data
-  let META, FR, TL, EV, TR, GROUPS = new Map(), CUM = {}, NSEC = 0;
+  let META, FR, TL, EV, TR, GEAR, GROUPS = new Map(), CUM = {}, NSEC = 0;
+  // per-worker gear: hat from the hard-hat check, coverall/tape/boots from the gear pass
+  function gearOf(id, st) {
+    const g = (TR[id] || {}).gear || {};
+    return [
+      ['Hat', st === 'ok' ? 'y' : st === 'alert' ? 'x' : 'q'],
+      ['Coverall', g.coverall ? 'y' : 'q'],
+      ['Tape', g.tape === 'seen' ? 'y' : g.tape === 'not seen' ? 'n' : 'q'],
+      ['Boots', g.boots === 'seen' ? 'y' : 'q'],
+    ];
+  }
+  const GMARK = { y: '✓', q: '?', n: '–', x: '✕' };
   async function load() {
     const get = (p) => fetch(p).then((r) => { if (!r.ok) throw new Error(p + ' ' + r.status); return r.json(); });
-    [META, FR, TL, EV, TR] = await Promise.all([get('data/meta.json'), get('data/frames.json'), get('data/timeline.json'), get('data/events.json'), get('data/tracks.json')]);
+    [META, FR, TL, EV, TR, GEAR] = await Promise.all([get('data/meta.json'), get('data/frames.json'), get('data/timeline.json'), get('data/events.json'), get('data/tracks.json'), get('data/gear.json')]);
     FR.groups.forEach(([f, gs]) => GROUPS.set(f, gs));
     // timeline columns -> arrays + prefix sums
     const cols = TL.cols; const idx = Object.fromEntries(cols.map((c, i) => [c, i]));
@@ -221,6 +232,12 @@
           for (const dy of [0, 17, 34, 51]) { rect = [x1, y1 - lh - 2 - dy, x1 + tw + 12, y1 - 2 - dy]; if (!hit(rect)) break; }
           ly = rect[1];
         }
+        if (!small && !narrow && bh > 150 && rect[1] === y1 - lh - 2 && (st === 'ok' || st === 'unv')) {
+          const gl = gearOf(r[0], st).slice(1); const t2 = gl.map(([n, v]) => `${GMARK[v]} ${n.toLowerCase()}`).join('  ');
+          ctx.font = '600 10.5px InterV, Inter, sans-serif'; const tw2 = ctx.measureText(t2).width; const r2 = [x1, rect[1] - 16, x1 + tw2 + 12, rect[1] - 1];
+          if (!hit(r2)) { placed.push(r2); ctx.fillStyle = 'rgba(10,14,26,.72)'; roundRect(ctx, r2[0], r2[1], r2[2] - r2[0], 15, 4); ctx.fill(); ctx.fillStyle = '#DDE4F2'; ctx.fillText(t2, r2[0] + 6, r2[1] + 11); }
+          ctx.font = `600 ${narrow ? 9 : small ? 10 : 11.5}px InterV, Inter, sans-serif`;
+        }
         placed.push(rect);
         ctx.fillStyle = 'rgba(10,14,26,.78)'; roundRect(ctx, rect[0], rect[1], rect[2] - rect[0], lh, 4); ctx.fill();
         ctx.fillStyle = isSel ? C.brand : col; ctx.fillRect(rect[0], rect[1], 3, lh);
@@ -242,7 +259,7 @@
     CH[id] = { cv, st, drawStatic, opts, dims: null };
     const tip = cv.parentElement.querySelector('.tip');
     if (opts.seek) {
-      const toT = (ev) => { const r = cv.getBoundingClientRect(); const m = CH[id].dims; const x = ev.clientX - r.left; return clamp((x - m.l) / (m.w - m.l - m.r), 0, 1) * video.duration; };
+      const toT = (ev) => { const r = cv.getBoundingClientRect(); const m = CH[id].dims; const x = ev.clientX - r.left; return clamp((x - m.l) / (r.width - m.l - m.r), 0, 1) * durOf(); };
       cv.addEventListener('pointerdown', (ev) => { cv.setPointerCapture(ev.pointerId); S.dragging = true; seek(toT(ev), true); });
       cv.addEventListener('pointermove', (ev) => {
         const t = toT(ev); if (S.dragging && ev.buttons) seek(t, true);
@@ -260,7 +277,7 @@
   function renderDyn(id, t) {
     const c = CH[id]; if (!c.dims) return; const ctx = c.cv.getContext('2d'); const d = window.devicePixelRatio || 1; const [w, h] = c.wh; const m = c.dims;
     ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.clearRect(0, 0, c.cv.width, c.cv.height); ctx.drawImage(c.st, 0, 0); ctx.setTransform(d, 0, 0, d, 0, 0);
-    const X = m.l + (w - m.l - m.r) * (t / (video.duration || NSEC));
+    const X = m.l + (w - m.l - m.r) * (t / durOf());
     ctx.fillStyle = rgba(C.card.startsWith('#') ? C.card : '#131B31', .62); ctx.fillRect(X, m.t, w - m.r - X, h - m.t - m.b);
     ctx.strokeStyle = C.text; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.moveTo(X, m.t - 2); ctx.lineTo(X, h - m.b + 2); ctx.stroke();
     if (c.opts.knob) { ctx.fillStyle = C.brand; ctx.beginPath(); ctx.arc(X, m.t + 2, 5, 0, 7); ctx.fill(); }
@@ -337,33 +354,72 @@
     // group card
     const g = S.gNow; $('#group-card').hidden = !g;
     if (g) { $('#g-n').textContent = g.n; $('#g-dur').textContent = `${Math.floor(g.dur / 60)}:${pad(Math.floor(g.dur % 60))}`; }
+    // PPE kit now (workers close enough to check)
+    const nearR = recs.filter((r) => r[6] === 1 && r[7] !== 6);
+    const kitRows = [['Hard hat', 0], ['Coverall', 1], ['Reflective tape', 2], ['Safety boots', 3]].map(([label, gi]) => {
+      const c = { y: 0, q: 0, n: 0, x: 0 }; nearR.forEach((r) => { c[gearOf(r[0], statusOf(r))[gi][1]]++; }); return { label, c };
+    });
+    const kitEl = $('#kit-now');
+    if (!kitEl._built) {
+      const ICON = { 'Hard hat': '<path d="M4 15h16M5 15a7 7 0 0 1 14 0M12 8v-2"/>', Coverall: '<path d="M8 4h8l3 5-3 1v10H8V10L5 9z"/>', 'Reflective tape': '<path d="M8 4h8l3 5-3 1v10H8V10L5 9zM8 13h8M8 16h8"/>', 'Safety boots': '<path d="M7 4v10l-2 3v3h14v-2l-6-3V4z"/>' };
+      kitEl.innerHTML = kitRows.map((k) => `<div class="kit-row" data-k="${k.label}"><svg viewBox="0 0 24 24">${ICON[k.label]}</svg><span>${k.label}</span><span class="v"></span><div class="bar"><b style="background:var(--ok);width:0"></b><b style="background:var(--warn);width:0"></b><b style="background:var(--crit);width:0"></b><b style="background:var(--faint);width:0"></b></div></div>`).join('');
+      kitEl._built = true;
+    }
+    kitRows.forEach(({ label, c }) => {
+      const row = kitEl.querySelector(`[data-k="${label}"]`); const n = nearR.length || 1; const b = row.querySelectorAll('b');
+      [c.y, c.n, c.x, c.q].forEach((v, i) => (b[i].style.width = (100 * v / n) + '%'));
+      row.querySelector('.v').textContent = nearR.length ? `${c.y} of ${nearR.length} seen${c.x ? ` · ${c.x} missing` : ''}${c.n ? ` · ${c.n} not seen` : ''}` : '-';
+    });
+    $('#kit-n').textContent = `${nearR.length} close enough to check`;
     // zones now
     const zc = {}; recs.forEach((r) => { const z = ZORDER[r[7]]; zc[z] = (zc[z] || 0) + 1; });
     hbars($('#zones-now'), ZSHOW.map((z) => ({ k: z, label: META.zone_labels[z], v: zc[z] || 0, crit: z === 'pipe_stack' })), 8, 'n');
     // zone time so far
     const zt = ZSHOW.map((z) => ({ k: z, label: META.zone_labels[z], v: CUM['z_' + z][s + 1] / 60, crit: z === 'pipe_stack' }));
     hbars($('#zone-time'), zt, Math.max(...ZSHOW.map((z) => CUM['z_' + z][NSEC] / 60)), 'min');
-    // in view list
-    const ids = recs.map((r) => r[0]).join(',');
-    if (ids !== S.lastIds || S.selDirty) {
-      S.lastIds = ids; S.selDirty = false;
-      const ul = $('#inview'); ul.replaceChildren();
-      recs.slice().sort((a, b) => (b[4] - b[2]) - (a[4] - a[2])).forEach((r) => {
-        const st = statusOf(r); const tr = TR[r[0]] || {};
-        const li = document.createElement('li'); if (S.sel === r[0]) li.classList.add('sel');
+    // in view list: one stable row per worker (ordered by arrival), updated in place
+    const ul = $('#inview'); S.rows = S.rows || new Map();
+    if (Math.abs(t - (S.listT ?? t)) > 2) { S.rows.forEach((row) => row.li.remove()); S.rows.clear(); }
+    S.listT = t;
+    const present = new Map(recs.map((r) => [r[0], r]));
+    present.forEach((r, id) => {
+      let row = S.rows.get(id);
+      if (!row) {
+        const tr = TR[id] || {};
+        const li = document.createElement('li'); li.addEventListener('click', () => select(id));
         const th = document.createElement('span'); th.className = 'th'; if (tr.crop) th.style.backgroundImage = `url(${tr.crop})`; else th.classList.add('none');
-        const mid = document.createElement('div'); const nm = document.createElement('div'); nm.className = 'nm'; nm.textContent = `Worker ${r[0]}`;
-        const hc = COLN[r[9]], sc = COLN[r[10]];
-        if (hc) { const sw = document.createElement('i'); sw.className = 'sw round'; sw.style.background = SWATCH[hc]; sw.title = hc + ' hard hat'; nm.appendChild(sw); }
-        if (sc) { const sw = document.createElement('i'); sw.className = 'sw'; sw.style.background = SWATCH[sc]; sw.title = sc + ' coverall'; nm.appendChild(sw); }
-        const meta = document.createElement('div'); meta.className = 'meta'; meta.textContent = META.zone_labels[ZORDER[r[7]]] + (POST[r[8]] && r[8] > 1 ? ' · ' + POST[r[8]] : '');
-        mid.append(nm, meta);
-        const chip = document.createElement('span'); chip.className = 'st ' + ({ ok: 'ok', unv: 'un', alert: 'al', nogo: 'al', far: 'far' })[st]; chip.textContent = ({ ok: '✓ Hard hat', unv: '? Not visible', alert: '✕ Alert', nogo: '✕ No-go', far: 'Too far' })[st];
-        li.append(th, mid, chip); li.addEventListener('click', () => select(r[0]));
-        ul.appendChild(li);
-      });
-      $('#inview-n').textContent = recs.length;
-    }
+        const mid = document.createElement('div'); const nm = document.createElement('div'); nm.className = 'nm'; nm.textContent = `Worker ${id}`;
+        const meta = document.createElement('div'); meta.className = 'meta'; mid.append(nm, meta);
+        const chip = document.createElement('span'); li.append(th, mid, chip);
+        row = { li, nm, meta, chip, sw: '', m: '', c: '' }; S.rows.set(id, row);
+      }
+      row.last = t;
+      const hc = COLN[r[9]], sc = COLN[r[10]]; const swk = `${hc}|${sc}`;
+      if (row.sw !== swk) {
+        row.sw = swk; row.nm.querySelectorAll('.sw').forEach((e) => e.remove());
+        if (hc) { const sw = document.createElement('i'); sw.className = 'sw round'; sw.style.background = SWATCH[hc]; sw.title = hc + ' hard hat'; row.nm.appendChild(sw); }
+        if (sc) { const sw = document.createElement('i'); sw.className = 'sw'; sw.style.background = SWATCH[sc]; sw.title = sc + ' coverall'; row.nm.appendChild(sw); }
+      }
+      const m = META.zone_labels[ZORDER[r[7]]] + (POST[r[8]] && r[8] > 1 ? ' · ' + POST[r[8]] : '');
+      if (row.m !== m) { row.m = m; row.meta.textContent = m; }
+      const st = statusOf(r); const gl = gearOf(id, st); const c = st + gl.map((x) => x[1]).join('');
+      if (row.c !== c) {
+        row.c = c;
+        if (st === 'far' || st === 'nogo') { row.chip.className = 'st ' + (st === 'far' ? 'far' : 'al'); row.chip.textContent = st === 'far' ? 'Too far' : '✕ No-go'; }
+        else {
+          row.chip.className = 'gear'; row.chip.replaceChildren();
+          gl.forEach(([n, v]) => { const sp = document.createElement('span'); sp.className = v; sp.textContent = `${GMARK[v]} ${n}`; sp.title = { y: 'seen', q: 'not visible or unclear', n: 'not seen', x: 'missing' }[v]; row.chip.appendChild(sp); });
+        }
+      }
+      row.li.classList.remove('gone'); row.li.classList.toggle('sel', S.sel === id);
+    });
+    S.rows.forEach((row, id) => {
+      if (present.has(id)) return;
+      if (Math.abs(t - row.last) > 1.5) { row.li.remove(); S.rows.delete(id); } else row.li.classList.add('gone');
+    });
+    const order = [...S.rows.keys()].sort((a, b) => ((TR[a] || {}).first ?? 0) - ((TR[b] || {}).first ?? 0) || a - b);
+    order.forEach((id, k) => { const li = S.rows.get(id).li; if (ul.children[k] !== li) ul.insertBefore(li, ul.children[k] || null); });
+    $('#inview-n').textContent = present.size;
     // events state
     document.querySelectorAll('#events li').forEach((li) => {
       const e = EV[+li.dataset.i]; li.classList.toggle('now', e.f0 <= f && f <= Math.max(e.f1, e.f0 + 3 * FPS)); li.classList.toggle('future', e.f0 > f);
@@ -401,7 +457,11 @@
     const pct = tr.checks ? Math.round(100 * tr.hat / tr.checks) + '%' : '-';
     const status = { ok: 'On', partial: 'Hat often hidden from camera', far: 'Too far to check', check: 'Check: possibly no hard hat' }[tr.status];
     [['First seen', clockAt(tr.first / FPS)], ['Last seen', clockAt(tr.last / FPS)], ['On camera', `${((tr.last - tr.first) / FPS).toFixed(0)} s`], ['Hard hat', status],
-     ['Hat seen in', tr.checks ? `${pct} of checks` : '-'], ['Hard hat colour', tr.hc || '-'], ['Coverall', tr.sc || '-']]
+     ['Hat seen in', tr.checks ? `${pct} of checks` : '-'], ['Hard hat colour', tr.hc || '-'],
+     ['Coverall', (tr.gear && tr.gear.coverall) ? `On (${tr.gear.coverall})` : (tr.sc ? `On (${tr.sc})` : 'Not clear')],
+     ['Reflective tape', tr.gear ? ({ seen: 'Seen', 'not seen': 'Not seen', unclear: 'Unclear' })[tr.gear.tape] : '-'],
+     ['Safety boots', tr.gear ? (tr.gear.boots === 'seen' ? 'Seen' : 'Feet not visible enough') : '-'],
+     ['Gloves, glasses', 'Too small to check from this camera']]
       .forEach(([a, b]) => { const dt = document.createElement('dt'); dt.textContent = a; const dd = document.createElement('dd'); dd.textContent = b; dl.append(dt, dd); });
     $('#tc-meta').replaceChildren(dl);
     const zs = Object.entries(tr.zones).slice(0, 4); const zel = $('#tc-zones'); zel._built = false;
@@ -411,7 +471,19 @@
   }
 
   // ------------------------------------------------------------------ transport
-  function seek(t, fast) { t = clamp(t, 0, (video.duration || NSEC) - 0.05); if (fast && video.fastSeek) video.fastSeek(t); else video.currentTime = t; S.lastT = -1; }
+  function durOf() { return isFinite(video.duration) && video.duration > 0 ? video.duration : NSEC; }
+  function seek(t, fast) {
+    if (!isFinite(t)) return;
+    t = clamp(t, 0, durOf() - 0.05);
+    const now = performance.now();
+    if (fast) {
+      clearTimeout(S.seekTimer);
+      if (now - (S.lastSeekAt || 0) < 120) { S.seekTimer = setTimeout(() => seek(t, true), 130); return; }
+    }
+    S.lastSeekAt = now; S.listT = undefined;
+    try { if (fast && video.fastSeek) video.fastSeek(t); else video.currentTime = t; } catch (e) { /* not seekable yet */ }
+    S.lastT = -1;
+  }
   function play() { video.play().catch(() => {}); }
   function toggle() { video.paused ? play() : video.pause(); }
   function jumpEvent(dir) {
@@ -443,22 +515,26 @@
     two.appendChild(sec('Went well', list([
       `Hard hats on: ${comp} of the time workers were close enough to check, with no hard-hat alerts.`,
       g ? `Toolbox talk from ${g.start} with up to ${g.peak} people, still going when the recording ends.` : 'No toolbox talk seen in this recording.',
+      `Coverall on ${Math.round(100 * GEAR.coverall_pm / GEAR.checked_pm)}% of the time workers were close enough to check (orange ${GEAR.coverall_pm_by_colour.orange}, blue ${GEAR.coverall_pm_by_colour.blue} person-minutes).`,
+      `Safety boots confirmed on ${Math.round(100 * GEAR.boots_seen_pm / GEAR.boots_feet_visible_pm)}% of the time feet were in view; nobody was seen without them.`,
       'Nobody stepped onto the pipe stack.',
       'The fire extinguisher stayed visible and clear the whole time.',
     ])));
     two.appendChild(sec('Needs attention', list([
       [`Cables and hoses spread across the main walkway, from ${f1(100 * (sm.clutter_start || 0))}% to ${f1(100 * (sm.clutter_end || 0))}% of the floor in ten minutes. That is a trip hazard where people walk.`, 'Action: run leads overhead or along the edge, use cable ramps, and clear the walkway before work starts.'],
+      [`Reflective tape not seen for ${GEAR.tape_not_seen_pm} of ${GEAR.checked_pm} checked person-minutes, almost all on blue coveralls (${GEAR.tape_not_seen_pm_by_colour.blue}). Orange coveralls carried tape.`, 'Action: check whether the site requires reflective tape on all coveralls, and issue taped coveralls to the blue-coverall crew if so.'],
       [`Workers bent or crouched at floor level for 3 seconds or more ${posture.length} times (workers ${pw.join(', ')}), mostly pulling cable at the electrical cabinet.`, 'Action: use cable reels or a trolley, and review manual handling for this task.'],
     ])));
     b.appendChild(two);
     b.appendChild(sec('What this camera watches for', list([
-      'Hard hats on every worker close enough to check, with hard-hat and coverall colours',
+      'Hard hat, coverall, reflective tape and safety boots on every worker close enough to check, with hard-hat and coverall colours',
       'People on the pipe stack (no-go), in the welding booths and at the gas cylinders',
       'Bending, crouching, or someone lying on the floor',
       'Toolbox talks and crowding',
       'Cables and hoses spreading onto the walkway',
       'The fire extinguisher being blocked, and welding flashes',
-      ['Can be added', 'Gloves, boots and eye protection (needs a closer camera), the electrical cabinet left open, gas cylinders not secured, fume fan position, smoke and fire.'],
+      ['Needs a closer camera', 'Gloves, safety glasses, welding face shields and face coverings are too small to judge reliably from this camera position.'],
+      ['Can be added', 'The electrical cabinet left open, gas cylinders not secured, fume fan position, smoke and fire.'],
     ])));
     b.appendChild(sec('Worth tracking over the coming weeks', list([
       ['Hard hats on, by shift, crew and area', 'Shows whether it holds through the day and after the toolbox talk.'],
