@@ -10,7 +10,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&display=swap">
 <link rel="icon" href="assets/vismaya-v.png">
-<link rel="stylesheet" href="assets/app.css">
+<link rel="stylesheet" href="assets/app.css?v=2">
 <script>try{const t=localStorage.getItem('vms-theme');if(t)document.documentElement.dataset.theme=t;}catch(e){}</script>
 </head>
 <body>
@@ -73,8 +73,8 @@
       </div>
       <div class="stage" id="stage">
         <video id="video" preload="none" playsinline muted poster="media/floor.jpg">
-          <source src="media/bay1_hevc.mp4" type='video/mp4; codecs="hvc1"'>
-          <source src="media/bay1_h264.mp4" type='video/mp4; codecs="avc1.64001f"'>
+          <source src="media/bay1_hevc.mp4?v=2" type='video/mp4; codecs="hvc1"'>
+          <source src="media/bay1_h264.mp4?v=2" type='video/mp4; codecs="avc1.64001f"'>
         </video>
         <canvas id="ov" aria-label="Safety overlay on the video"></canvas>
         <div class="stage-hint" id="stage-hint">Click a worker to inspect</div>
@@ -178,6 +178,6 @@
   </div>
 </div>
 
-<script src="assets/app.js"></script>
+<script src="assets/app.js?v=2"></script>
 </body>
 </html>
