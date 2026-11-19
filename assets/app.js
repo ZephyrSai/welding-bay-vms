@@ -52,7 +52,7 @@
   const GMARK = { y: '✓', q: '?', n: '–', x: '✕' };
   async function load() {
     const get = (p) => fetch(p).then((r) => { if (!r.ok) throw new Error(p + ' ' + r.status); return r.json(); });
-    [META, FR, TL, EV, TR, GEAR] = await Promise.all([get('data/meta.json'), get('data/frames.json'), get('data/timeline.json'), get('data/events.json'), get('data/tracks.json'), get('data/gear.json')]);
+    [META, FR, TL, EV, TR, GEAR] = await Promise.all([get('data/meta.json'), get('data/frames.json'), get('data/timeline.json'), get('data/events.json'), get('data/tracks.json?v=2'), get('data/gear.json?v=2')]);
     FR.groups.forEach(([f, gs]) => GROUPS.set(f, gs));
     // timeline columns -> arrays + prefix sums
     const cols = TL.cols; const idx = Object.fromEntries(cols.map((c, i) => [c, i]));
