@@ -345,7 +345,7 @@
     $('#k-people').textContent = recs.length; $('#k-people-s').textContent = `${near} close enough to check`;
     const ok = CUM.assess_ok[s + 1], al = CUM.assess_alert[s + 1];
     $('#k-comp').textContent = ok + al > 0.5 ? Math.round(100 * ok / (ok + al)) + '%' : '-';
-    $('#k-comp-s').textContent = `of checked time · ${(ok / 60).toFixed(1)} person-min so far`;
+    $('#k-comp-s').textContent = `when the head was visible · ${(ok / 60).toFixed(1)} person-min`;
     $('#k-alerts').textContent = EV.filter((e) => (e.kind === 'helmet_alert' || e.kind === 'exclusion_breach') && e.f0 <= f).length;
     const ci = 100 * (TL.get(s, 'clutter_index') || 0);
     $('#k-clutter').textContent = ci.toFixed(1) + '%'; $('#clutter-now').textContent = ci.toFixed(1) + '% now';
@@ -513,7 +513,7 @@
     b.appendChild(para(`Ten minutes at the start of the morning shift in Welding Bay 1, Wed 7 Oct 2026, ${sm.video.clock_start} to ${sm.video.clock_end}. About ${Math.floor(sm.peak_people)} to ${Math.ceil(sm.peak_people + 0.01)} people were on camera at the busiest moment, ${Math.round(sm.person_seconds / 60)} person-minutes in total. Every alert was reviewed by a person.`, 'lead'));
     const two = document.createElement('div'); two.className = 'two';
     two.appendChild(sec('Went well', list([
-      `Hard hats on: ${comp} of the time workers were close enough to check, with no hard-hat alerts.`,
+      `Hard hats on: ${comp} of the time a worker's head was visible, with no hard-hat alerts.`,
       g ? `Toolbox talk from ${g.start} with up to ${g.peak} people, still going when the recording ends.` : 'No toolbox talk seen in this recording.',
       `Coverall on ${Math.round(100 * GEAR.coverall_pm / GEAR.checked_pm)}% of the time workers were close enough to check (orange ${GEAR.coverall_pm_by_colour.orange}, blue ${GEAR.coverall_pm_by_colour.blue} person-minutes).`,
       `Safety boots confirmed on ${Math.round(100 * GEAR.boots_seen_pm / GEAR.boots_feet_visible_pm)}% of the time feet were in view; nobody was seen without them.`,
